@@ -5,32 +5,50 @@ const user = require("../models/user");
 
 
 router.post("/session", verifyFirebase, async (req, res) => {
-  const fb = req.firebaseUser;
-  const email = fb.email;
-  const uid = fb.uid;
+  try {
+    const fb = req.firebaseUser; // decoded firebase token
+    const uid = fb.uid;
+    const email = fb.email;
 
-  if (!email) return res.status(400).json({ ok: false, message: "No email in token" });
+    if (!email) {
+      return res.status(400).json({ ok: false, message: "Firebase token has no email" });
+    }
 
-  const update = {
-    uid,
-    email,
-    name: fb.name || fb.email?.split("@")[0] || "",
-    photoURL: fb.picture || "",
-  };
+    // ✅ Find or create/update user first
+    const update = {
+      uid,
+      email,
+      name: fb.name || email.split("@")[0],
+      photoURL: fb.picture || "",
+    };
 
-  const user = await user.findOneAndUpdate(
-    { uid },
-    { $set: update, $setOnInsert: { role: "user" } },
-    { new: true, upsert: true }
-  );
+    const dbUser = await user.findOneAndUpdate(
+      { uid },
+      { $set: update, $setOnInsert: { role: "user" } },
+      { new: true, upsert: true }
+    );
 
-  const token = jwt.sign(
-    { _id: user._id.toString(), uid: user.uid, email: user.email, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+    // ✅ Now sign JWT after dbUser exists
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ ok: false, message: "Missing JWT_SECRET" });
+    }
 
-  res.json({ ok: true, token, user });
+    const token = jwt.sign(
+      {
+        _id: dbUser._id.toString(),
+        uid: dbUser.uid,
+        email: dbUser.email,
+        role: dbUser.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({ ok: true, token, user: dbUser });
+  } catch (err) {
+    console.error("❌ /api/auth/session error:", err);
+    return res.status(500).json({ ok: false, message: "Session failed" });
+  }
 });
 
 module.exports = router;
