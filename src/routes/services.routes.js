@@ -46,11 +46,11 @@
 
 // src/routes/services.routes.js
 const router = require("express").Router();
-const Service = require("../models/Service"); // make sure this path matches your project
+const Service = require("../models/Service");
 const requireJWT = require("../middlewares/requireJWT");
 const requireRole = require("../middlewares/requireRole");
 
-// PUBLIC: get all services (admin also uses this)
+// PUBLIC: get all services
 router.get("/", async (req, res) => {
   try {
     const list = await Service.find({}).sort({ createdAt: -1 });
@@ -61,17 +61,39 @@ router.get("/", async (req, res) => {
   }
 });
 
+// ✅ PUBLIC: get single service by id (Service Details)
+router.get("/:id", async (req, res) => {
+  try {
+    const service = await Service.findById(req.params.id);
+
+    if (!service) {
+      return res.status(404).json({ ok: false, message: "Service not found" });
+    }
+
+    res.json({ ok: true, data: service });
+  } catch (e) {
+    return res.status(400).json({ ok: false, message: "Invalid service id" });
+  }
+});
+
 // ADMIN: update service
 router.patch("/:id", requireJWT, requireRole(["admin"]), async (req, res) => {
   try {
-    const allowed = ["title", "serviceTitle", "price", "category", "type", "image", "description"];
+    const allowed = [
+      "title",
+      "serviceTitle",
+      "price",
+      "category",
+      "type",
+      "image",
+      "description",
+    ];
     const update = {};
 
     for (const key of allowed) {
       if (req.body[key] !== undefined) update[key] = req.body[key];
     }
 
-    // normalize number fields
     if (update.price !== undefined) update.price = Number(update.price) || 0;
 
     const updated = await Service.findByIdAndUpdate(
