@@ -70,13 +70,15 @@ router.post("/", requireJWT, async (req, res) => {
 });
 
 // USER: my bookings
-// USER: my bookings
+
 router.get("/my", requireJWT, async (req, res) => {
   try {
     const userId = req.user?._id; // ✅ FIX: req.user not req.auth
 
     if (!userId) {
-      return res.status(401).json({ ok: false, message: "Invalid JWT payload (missing _id)" });
+      return res
+        .status(401)
+        .json({ ok: false, message: "Invalid JWT payload (missing _id)" });
     }
 
     const list = await Booking.find({ userId }).sort({ createdAt: -1 });
@@ -99,6 +101,32 @@ router.get("/:id", requireJWT, async (req, res) => {
 
   res.json({ ok: true, data: booking });
 });
+
+router.patch("/:id/pay", requireJWT, async (req, res) => {
+  try {
+    const { transactionId } = req.body;
+    const booking = await Booking.findById(req.params.id);
+    if (!booking)
+      return res.status(404).json({ ok: false, message: "Booking not found" });
+
+    if (
+      req.user.role === "user" &&
+      booking.userId.toString() !== req.user._id
+    ) {
+      return res.status(403).json({ ok: false, message: "Forbidden" });
+    }
+
+    booking.paymentStatus = "paid";
+    booking.transactionId = transactionId || "";
+    await booking.save();
+
+    res.json({ ok: true, data: booking });
+  } catch (e) {
+    console.error("pay booking error:", e);
+    res.status(500).json({ ok: false, message: "Failed to update payment" });
+  }
+});
+
 // DECORATOR: my assigned bookings
 router.get(
   "/assigned",

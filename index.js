@@ -7,7 +7,8 @@ const authRoutes = require("./src/routes/auth.routes");
 const userRoutes = require("./src/routes/users.routes");
 const servicesRoutes = require("./src/routes/services.routes");
 const decoratorsRoutes = require("./src/routes/decorators.routes");
-const bookingsRoutes = require("./src/routes/bookings.routes"); // ✅ ADD
+const bookingsRoutes = require("./src/routes/bookings.routes");
+const paymentsRoutes = require("./src/routes/payments.routes");
 
 const app = express();
 
@@ -20,7 +21,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/services", servicesRoutes);
 app.use("/api/decorators", decoratorsRoutes);
-app.use("/api/bookings", bookingsRoutes); // ✅ ADD
+app.use("/api/bookings", bookingsRoutes);
+app.use("/api/payments", paymentsRoutes);
 
 app.use((req, res) =>
   res.status(404).json({ ok: false, message: "Route not found" })
