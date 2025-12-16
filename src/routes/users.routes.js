@@ -8,6 +8,13 @@ router.get("/me", requireJWT, async (req, res) => {
   res.json({ ok: true, user });
 });
 
+router.get("/", requireJWT, requireRole(["admin"]), async (req, res) => {
+  const role = req.query.role;
+  const q = role ? { role } : {};
+  const users = await User.find(q).sort({ createdAt: -1 });
+  res.json({ ok: true, data: users });
+});
+
 // admin assigns role decorator/admin
 router.patch("/:id/role", requireJWT, requireRole("admin"), async (req, res) => {
   const { role } = req.body;

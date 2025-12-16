@@ -9,7 +9,7 @@ async function run() {
 
   // If you want "seed once", prevent duplicates by checking count
   const count = await Service.countDocuments();
-  if (count > 0) {
+  if (count > 4) {
     console.log("✅ Services already exist. Skipping seed.");
     process.exit(0);
   }
