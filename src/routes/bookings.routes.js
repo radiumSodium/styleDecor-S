@@ -1,86 +1,138 @@
 const router = require("express").Router();
 const Booking = require("../models/Booking");
 const Service = require("../models/Service");
-const verifyJWT = require("../middlewares/verifyJWT");
+const requireJWT = require("../middlewares/requireJWT");
 const requireRole = require("../middlewares/requireRole");
 const user = require("../models/user");
 
 // USER: create booking (after selecting service)
-router.post("/", verifyJWT, async (req, res) => {
-  const { serviceId, date, slot, venue, address, notes } = req.body;
+router.post("/", requireJWT, async (req, res) => {
+  try {
+    const {
+      serviceId,
+      serviceTitle,
+      price,
+      date,
+      slot,
+      notes,
+      type,
+      category,
+      image,
+      customerName,
+      phone,
+      venue,
+      address,
+    } = req.body;
 
-  if (!serviceId || !date || !slot || !venue) {
-    return res.status(400).json({ ok: false, message: "Missing required fields" });
+    if (
+      !serviceId ||
+      !serviceTitle ||
+      !date ||
+      !slot ||
+      !customerName ||
+      !phone ||
+      !venue ||
+      !category
+    ) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Missing required fields" });
+    }
+
+    const booking = await Booking.create({
+      serviceId,
+      serviceTitle,
+      price: Number(price) || 0,
+      date,
+      slot,
+      notes: notes || "",
+      type,
+      category,
+      image: image || "",
+
+      customerName,
+      phone,
+      venue,
+      address: address || "",
+
+      userId: req.user._id,
+      userEmail: req.user.email,
+
+      status: "assigned",
+      paymentStatus: "unpaid",
+    });
+
+    res.status(201).json({ ok: true, data: booking });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, message: "Failed to create booking" });
   }
-
-  const service = await Service.findById(serviceId);
-  if (!service) return res.status(404).json({ ok: false, message: "Service not found" });
-
-  const user = await user.findById(req.auth._id);
-  if (!user) return res.status(401).json({ ok: false, message: "User not found" });
-
-  const booking = await Booking.create({
-    serviceId: service._id,
-    serviceTitle: service.title,
-    price: service.price,
-    type: service.type,
-
-    userId: user._id,
-    userEmail: user.email,
-
-    date,
-    slot,
-    venue,
-    address: address || "",
-    notes: notes || "",
-
-    status: "assigned",
-  });
-
-  res.status(201).json({ ok: true, data: booking });
 });
 
 // USER: my bookings
-router.get("/my", verifyJWT, async (req, res) => {
-  const list = await Booking.find({ userId: req.auth._id }).sort({ createdAt: -1 });
-  res.json({ ok: true, data: list });
+// USER: my bookings
+router.get("/my", requireJWT, async (req, res) => {
+  try {
+    const userId = req.user?._id; // ✅ FIX: req.user not req.auth
+
+    if (!userId) {
+      return res.status(401).json({ ok: false, message: "Invalid JWT payload (missing _id)" });
+    }
+
+    const list = await Booking.find({ userId }).sort({ createdAt: -1 });
+    res.json({ ok: true, data: list });
+  } catch (e) {
+    console.error("GET /api/bookings/my error:", e);
+    res.status(500).json({ ok: false, message: "Failed to load bookings" });
+  }
 });
 
+router.get("/:id", requireJWT, async (req, res) => {
+  const booking = await Booking.findById(req.params.id);
+  if (!booking)
+    return res.status(404).json({ ok: false, message: "Booking not found" });
+
+  // user can only access own booking
+  if (req.user.role === "user" && booking.userId.toString() !== req.user._id) {
+    return res.status(403).json({ ok: false, message: "Forbidden" });
+  }
+
+  res.json({ ok: true, data: booking });
+});
 // DECORATOR: my assigned bookings
 router.get(
   "/assigned",
-  verifyJWT,
+  requireJWT,
   requireRole(["decorator"]),
   async (req, res) => {
-    const list = await Booking.find({ assignedDecoratorId: req.auth._id }).sort({ createdAt: -1 });
+    const list = await Booking.find({ assignedDecoratorId: req.auth._id }).sort(
+      { createdAt: -1 }
+    );
     res.json({ ok: true, data: list });
   }
 );
 
 // ADMIN: all bookings
-router.get(
-  "/all",
-  verifyJWT,
-  requireRole(["admin"]),
-  async (req, res) => {
-    const list = await Booking.find({}).sort({ createdAt: -1 });
-    res.json({ ok: true, data: list });
-  }
-);
+router.get("/all", requireJWT, requireRole(["admin"]), async (req, res) => {
+  const list = await Booking.find({}).sort({ createdAt: -1 });
+  res.json({ ok: true, data: list });
+});
 
 // ADMIN: assign decorator/team
 router.patch(
   "/:id/assign",
-  verifyJWT,
+  requireJWT,
   requireRole(["admin"]),
   async (req, res) => {
     const { decoratorId, team } = req.body;
 
     const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ ok: false, message: "Booking not found" });
+    if (!booking)
+      return res.status(404).json({ ok: false, message: "Booking not found" });
 
     booking.assignedDecoratorId = decoratorId || booking.assignedDecoratorId;
-    booking.assignedTeam = typeof team === "string" ? team : booking.assignedTeam;
+    booking.assignedTeam =
+      typeof team === "string" ? team : booking.assignedTeam;
     booking.statusUpdatedAt = new Date();
     await booking.save();
 
@@ -91,22 +143,35 @@ router.patch(
 // DECORATOR (or ADMIN): update status
 router.patch(
   "/:id/status",
-  verifyJWT,
+  requireJWT,
   requireRole(["admin", "decorator"]),
   async (req, res) => {
     const { status } = req.body;
-    const allowed = ["assigned", "planning", "materials", "ontheway", "setup", "complete"];
+    const allowed = [
+      "assigned",
+      "planning",
+      "materials",
+      "ontheway",
+      "setup",
+      "complete",
+    ];
     if (!allowed.includes(status)) {
       return res.status(400).json({ ok: false, message: "Invalid status" });
     }
 
     const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ ok: false, message: "Booking not found" });
+    if (!booking)
+      return res.status(404).json({ ok: false, message: "Booking not found" });
 
     // decorator can only update their own assigned booking
     if (req.auth.role === "decorator") {
-      if (!booking.assignedDecoratorId || booking.assignedDecoratorId.toString() !== req.auth._id) {
-        return res.status(403).json({ ok: false, message: "Not your assigned booking" });
+      if (
+        !booking.assignedDecoratorId ||
+        booking.assignedDecoratorId.toString() !== req.auth._id
+      ) {
+        return res
+          .status(403)
+          .json({ ok: false, message: "Not your assigned booking" });
       }
     }
 
