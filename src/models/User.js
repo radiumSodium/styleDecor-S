@@ -6,9 +6,13 @@ const userSchema = new Schema(
     name: { type: String, default: "" },
     email: { type: String, required: true, unique: true },
     photoURL: { type: String, default: "" },
-    role: { type: String, enum: ["user", "admin", "decorator"], default: "user" },
+    role: {
+      type: String,
+      enum: ["user", "admin", "decorator"],
+      default: "user",
+    },
   },
   { timestamps: true }
 );
 
-module.exports = model("User", userSchema);
+module.exports = model("user", userSchema);
