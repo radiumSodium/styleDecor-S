@@ -1,9 +1,7 @@
 const router = require("express").Router();
 const Booking = require("../models/Booking");
-const Service = require("../models/Service");
 const requireJWT = require("../middlewares/requireJWT");
 const requireRole = require("../middlewares/requireRole");
-const user = require("../models/user");
 
 // USER: create booking (after selecting service)
 router.post("/", requireJWT, async (req, res) => {
@@ -64,16 +62,15 @@ router.post("/", requireJWT, async (req, res) => {
 
     res.status(201).json({ ok: true, data: booking });
   } catch (e) {
-    console.error(e);
+    console.error("POST /api/bookings error:", e);
     res.status(500).json({ ok: false, message: "Failed to create booking" });
   }
 });
 
 // USER: my bookings
-
 router.get("/my", requireJWT, async (req, res) => {
   try {
-    const userId = req.user?._id; // ✅ FIX: req.user not req.user
+    const userId = req.user?._id;
 
     if (!userId) {
       return res
@@ -89,51 +86,71 @@ router.get("/my", requireJWT, async (req, res) => {
   }
 });
 
-
 // DECORATOR: my assigned bookings
 router.get(
   "/assigned",
   requireJWT,
   requireRole(["decorator"]),
   async (req, res) => {
-    const list = await Booking.find({ assignedDecoratorId: req.user._id }).sort(
-      { createdAt: -1 }
-    );
-    res.json({ ok: true, data: list });
+    try {
+      const list = await Booking.find({
+        assignedDecoratorId: req.user._id,
+      }).sort({ createdAt: -1 });
+
+      res.json({ ok: true, data: list });
+    } catch (e) {
+      console.error("GET /api/bookings/assigned error:", e);
+      res
+        .status(500)
+        .json({ ok: false, message: "Failed to load assigned bookings" });
+    }
   }
 );
 
 // ADMIN: all bookings
 router.get("/all", requireJWT, requireRole(["admin"]), async (req, res) => {
-  const list = await Booking.find({}).sort({ createdAt: -1 });
-  res.json({ ok: true, data: list });
-});
-
-// ADMIN: assign decorator/team
-
-router.get("/:id", requireJWT, async (req, res) => {
-  const booking = await Booking.findById(req.params.id);
-  if (!booking)
-    return res.status(404).json({ ok: false, message: "Booking not found" });
-
-  // user can only access own booking
-  if (req.user.role === "user" && booking.userId.toString() !== req.user._id) {
-    return res.status(403).json({ ok: false, message: "Forbidden" });
-  }
-
-  res.json({ ok: true, data: booking });
-});
-
-router.patch("/:id/pay", requireJWT, async (req, res) => {
   try {
-    const { transactionId } = req.body;
+    const list = await Booking.find({}).sort({ createdAt: -1 });
+    res.json({ ok: true, data: list });
+  } catch (e) {
+    console.error("GET /api/bookings/all error:", e);
+    res.status(500).json({ ok: false, message: "Failed to load bookings" });
+  }
+});
+
+// Get single booking (user can access own booking)
+router.get("/:id", requireJWT, async (req, res) => {
+  try {
     const booking = await Booking.findById(req.params.id);
     if (!booking)
       return res.status(404).json({ ok: false, message: "Booking not found" });
 
     if (
       req.user.role === "user" &&
-      booking.userId.toString() !== req.user._id
+      String(booking.userId) !== String(req.user._id)
+    ) {
+      return res.status(403).json({ ok: false, message: "Forbidden" });
+    }
+
+    res.json({ ok: true, data: booking });
+  } catch (e) {
+    console.error("GET /api/bookings/:id error:", e);
+    res.status(400).json({ ok: false, message: "Invalid booking id" });
+  }
+});
+
+// Mark booking paid (user can pay own booking)
+router.patch("/:id/pay", requireJWT, async (req, res) => {
+  try {
+    const { transactionId } = req.body;
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking)
+      return res.status(404).json({ ok: false, message: "Booking not found" });
+
+    if (
+      req.user.role === "user" &&
+      String(booking.userId) !== String(req.user._id)
     ) {
       return res.status(403).json({ ok: false, message: "Forbidden" });
     }
@@ -144,29 +161,41 @@ router.patch("/:id/pay", requireJWT, async (req, res) => {
 
     res.json({ ok: true, data: booking });
   } catch (e) {
-    console.error("pay booking error:", e);
+    console.error("PATCH /api/bookings/:id/pay error:", e);
     res.status(500).json({ ok: false, message: "Failed to update payment" });
   }
 });
 
+// ADMIN: assign decorator/team
 router.patch(
   "/:id/assign",
   requireJWT,
   requireRole(["admin"]),
   async (req, res) => {
-    const { decoratorId, team } = req.body;
+    try {
+      const { decoratorId, team } = req.body;
 
-    const booking = await Booking.findById(req.params.id);
-    if (!booking)
-      return res.status(404).json({ ok: false, message: "Booking not found" });
+      const booking = await Booking.findById(req.params.id);
+      if (!booking)
+        return res
+          .status(404)
+          .json({ ok: false, message: "Booking not found" });
 
-    booking.assignedDecoratorId = decoratorId || booking.assignedDecoratorId;
-    booking.assignedTeam =
-      typeof team === "string" ? team : booking.assignedTeam;
-    booking.statusUpdatedAt = new Date();
-    await booking.save();
+      if (decoratorId !== undefined) {
+        booking.assignedDecoratorId = decoratorId || null;
+      }
+      if (team !== undefined) {
+        booking.assignedTeam = typeof team === "string" ? team : "";
+      }
 
-    res.json({ ok: true, data: booking });
+      booking.statusUpdatedAt = new Date();
+      await booking.save();
+
+      res.json({ ok: true, data: booking });
+    } catch (e) {
+      console.error("PATCH /api/bookings/:id/assign error:", e);
+      res.status(500).json({ ok: false, message: "Failed to assign booking" });
+    }
   }
 );
 
@@ -176,40 +205,47 @@ router.patch(
   requireJWT,
   requireRole(["admin", "decorator"]),
   async (req, res) => {
-    const { status } = req.body;
-    const allowed = [
-      "assigned",
-      "planning",
-      "materials",
-      "ontheway",
-      "setup",
-      "complete",
-    ];
-    if (!allowed.includes(status)) {
-      return res.status(400).json({ ok: false, message: "Invalid status" });
-    }
+    try {
+      const { status } = req.body;
+      const allowed = [
+        "assigned",
+        "planning",
+        "materials",
+        "ontheway",
+        "setup",
+        "complete",
+      ];
 
-    const booking = await Booking.findById(req.params.id);
-    if (!booking)
-      return res.status(404).json({ ok: false, message: "Booking not found" });
-
-    // decorator can only update their own assigned booking
-    if (req.user.role === "decorator") {
-      if (
-        !booking.assignedDecoratorId ||
-        booking.assignedDecoratorId.toString() !== req.user._id
-      ) {
-        return res
-          .status(403)
-          .json({ ok: false, message: "Not your assigned booking" });
+      if (!allowed.includes(status)) {
+        return res.status(400).json({ ok: false, message: "Invalid status" });
       }
+
+      const booking = await Booking.findById(req.params.id);
+      if (!booking)
+        return res
+          .status(404)
+          .json({ ok: false, message: "Booking not found" });
+
+      if (req.user.role === "decorator") {
+        if (
+          !booking.assignedDecoratorId ||
+          String(booking.assignedDecoratorId) !== String(req.user._id)
+        ) {
+          return res
+            .status(403)
+            .json({ ok: false, message: "Not your assigned booking" });
+        }
+      }
+
+      booking.status = status;
+      booking.statusUpdatedAt = new Date();
+      await booking.save();
+
+      res.json({ ok: true, data: booking });
+    } catch (e) {
+      console.error("PATCH /api/bookings/:id/status error:", e);
+      res.status(500).json({ ok: false, message: "Failed to update status" });
     }
-
-    booking.status = status;
-    booking.statusUpdatedAt = new Date();
-    await booking.save();
-
-    res.json({ ok: true, data: booking });
   }
 );
 

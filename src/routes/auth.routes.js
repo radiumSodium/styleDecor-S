@@ -1,8 +1,7 @@
 const router = require("express").Router();
 const jwt = require("jsonwebtoken");
 const verifyFirebase = require("../middlewares/verifyFirebase");
-const user = require("../models/user");
-
+const User = require("../models/User");
 
 router.post("/session", verifyFirebase, async (req, res) => {
   try {
@@ -11,7 +10,9 @@ router.post("/session", verifyFirebase, async (req, res) => {
     const email = fb.email;
 
     if (!email) {
-      return res.status(400).json({ ok: false, message: "Firebase token has no email" });
+      return res
+        .status(400)
+        .json({ ok: false, message: "Firebase token has no email" });
     }
 
     // ✅ Find or create/update user first
@@ -22,7 +23,7 @@ router.post("/session", verifyFirebase, async (req, res) => {
       photoURL: fb.picture || "",
     };
 
-    const dbUser = await user.findOneAndUpdate(
+    const dbUser = await User.findOneAndUpdate(
       { uid },
       { $set: update, $setOnInsert: { role: "user" } },
       { new: true, upsert: true }
