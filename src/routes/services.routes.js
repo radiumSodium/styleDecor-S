@@ -29,57 +29,134 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// ADMIN: update service
-router.patch("/:id", requireJWT, requireRole(["admin"]), async (req, res) => {
-  try {
-    const allowed = [
-      "title",
-      "serviceTitle",
-      "price",
-      "category",
-      "type",
-      "image",
-      "description",
-    ];
-    const update = {};
+// ADMIN + DECORATOR: create new service
+router.post(
+  "/",
+  requireJWT,
+  requireRole(["admin", "decorator"]),
+  async (req, res) => {
+    try {
+      const {
+        title,
+        price,
+        category = "home",
+        type = "both",
+        image = "",
+        description = "",
+        tags = [],
+        active = true,
+        durationMins = 60,
+      } = req.body;
 
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) update[key] = req.body[key];
+      if (!title?.trim()) {
+        return res
+          .status(400)
+          .json({ ok: false, message: "Title is required" });
+      }
+
+      const doc = await Service.create({
+        title: title.trim(),
+        price: Number(price) || 0,
+        category,
+        type,
+        image,
+        description,
+        tags: Array.isArray(tags) ? tags : [],
+        active: Boolean(active),
+        durationMins: Number(durationMins) || 60,
+
+        // IMPORTANT: must be DB user ObjectId
+        createdBy: req.user?._id || null,
+      });
+
+      res.status(201).json({ ok: true, data: doc });
+    } catch (e) {
+      console.error("POST /api/services error:", e);
+      res.status(500).json({ ok: false, message: "Failed to create service" });
     }
-
-    if (update.price !== undefined) update.price = Number(update.price) || 0;
-
-    const updated = await Service.findByIdAndUpdate(
-      req.params.id,
-      { $set: update },
-      { new: true }
-    );
-
-    if (!updated) {
-      return res.status(404).json({ ok: false, message: "Service not found" });
-    }
-
-    res.json({ ok: true, data: updated });
-  } catch (e) {
-    console.error("PATCH /api/services/:id error:", e);
-    res.status(500).json({ ok: false, message: "Failed to update service" });
   }
-});
+);
 
-// ADMIN: delete service
-router.delete("/:id", requireJWT, requireRole(["admin"]), async (req, res) => {
-  try {
-    const deleted = await Service.findByIdAndDelete(req.params.id);
+router.patch(
+  "/:id",
+  requireJWT,
+  requireRole(["admin", "decorator"]),
+  async (req, res) => {
+    try {
+      const service = await Service.findById(req.params.id);
+      if (!service) {
+        return res
+          .status(404)
+          .json({ ok: false, message: "Service not found" });
+      }
 
-    if (!deleted) {
-      return res.status(404).json({ ok: false, message: "Service not found" });
+      // decorator can only edit own
+      if (req.user.role === "decorator") {
+        if (String(service.createdBy || "") !== String(req.user._id)) {
+          return res.status(403).json({ ok: false, message: "Forbidden" });
+        }
+      }
+
+      const allowed = [
+        "title",
+        "price",
+        "category",
+        "type",
+        "image",
+        "description",
+        "tags",
+        "active",
+        "durationMins",
+      ];
+
+      for (const key of allowed) {
+        if (req.body[key] !== undefined) service[key] = req.body[key];
+      }
+
+      if (req.body.price !== undefined)
+        service.price = Number(req.body.price) || 0;
+      if (req.body.durationMins !== undefined)
+        service.durationMins = Number(req.body.durationMins) || 60;
+
+      await service.save();
+
+      res.json({ ok: true, data: service });
+    } catch (e) {
+      console.error("PATCH /api/services/:id error:", e);
+      res.status(500).json({ ok: false, message: "Failed to update service" });
     }
-
-    res.json({ ok: true, data: deleted });
-  } catch (e) {
-    console.error("DELETE /api/services/:id error:", e);
-    res.status(500).json({ ok: false, message: "Failed to delete service" });
   }
-});
+);
+
+router.delete(
+  "/:id",
+  requireJWT,
+  requireRole(["admin", "decorator"]),
+  async (req, res) => {
+    try {
+      const service = await Service.findById(req.params.id);
+      if (!service) {
+        return res
+          .status(404)
+          .json({ ok: false, message: "Service not found" });
+      }
+
+      // decorator can only delete own
+      if (req.user.role === "decorator") {
+        if (String(service.createdBy || "") !== String(req.user._id)) {
+          return res.status(403).json({ ok: false, message: "Forbidden" });
+        }
+      }
+
+      await service.deleteOne();
+      res.json({ ok: true, data: service });
+    } catch (e) {
+      console.error("DELETE /api/services/:id error:", e);
+      res.status(500).json({ ok: false, message: "Failed to delete service" });
+    }
+  }
+);
+
+
 
 module.exports = router;
