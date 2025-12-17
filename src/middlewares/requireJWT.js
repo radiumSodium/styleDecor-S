@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const user = require("../models/user");
+const User = require("../models/User");
 
 module.exports = async function requireJWT(req, res, next) {
   try {
@@ -12,7 +12,7 @@ module.exports = async function requireJWT(req, res, next) {
 
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
-    const dbUser = await user.findOne({
+    const dbUser = await User.findOne({
       $or: [
         payload._id ? { _id: payload._id } : null,
         payload.email ? { email: payload.email } : null,

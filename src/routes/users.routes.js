@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const user = require("../models/user");
+const User = require("../models/User");
 const requireJWT = require("../middlewares/requireJWT");
 const requireRole = require("../middlewares/requireRole");
 
@@ -9,7 +9,7 @@ router.get("/", requireJWT, requireRole(["admin"]), async (req, res) => {
     const { role } = req.query;
     const query = role ? { role } : {};
 
-    const list = await user.find(query).sort({ createdAt: -1 });
+    const list = await User.find(query).sort({ createdAt: -1 });
     res.json({ ok: true, data: list });
   } catch (e) {
     console.error("GET /api/users error:", e);
