@@ -73,7 +73,7 @@ router.post("/", requireJWT, async (req, res) => {
 
 router.get("/my", requireJWT, async (req, res) => {
   try {
-    const userId = req.user?._id; // ✅ FIX: req.user not req.auth
+    const userId = req.user?._id; // ✅ FIX: req.user not req.user
 
     if (!userId) {
       return res
@@ -88,6 +88,28 @@ router.get("/my", requireJWT, async (req, res) => {
     res.status(500).json({ ok: false, message: "Failed to load bookings" });
   }
 });
+
+
+// DECORATOR: my assigned bookings
+router.get(
+  "/assigned",
+  requireJWT,
+  requireRole(["decorator"]),
+  async (req, res) => {
+    const list = await Booking.find({ assignedDecoratorId: req.user._id }).sort(
+      { createdAt: -1 }
+    );
+    res.json({ ok: true, data: list });
+  }
+);
+
+// ADMIN: all bookings
+router.get("/all", requireJWT, requireRole(["admin"]), async (req, res) => {
+  const list = await Booking.find({}).sort({ createdAt: -1 });
+  res.json({ ok: true, data: list });
+});
+
+// ADMIN: assign decorator/team
 
 router.get("/:id", requireJWT, async (req, res) => {
   const booking = await Booking.findById(req.params.id);
@@ -127,26 +149,6 @@ router.patch("/:id/pay", requireJWT, async (req, res) => {
   }
 });
 
-// DECORATOR: my assigned bookings
-router.get(
-  "/assigned",
-  requireJWT,
-  requireRole(["decorator"]),
-  async (req, res) => {
-    const list = await Booking.find({ assignedDecoratorId: req.auth._id }).sort(
-      { createdAt: -1 }
-    );
-    res.json({ ok: true, data: list });
-  }
-);
-
-// ADMIN: all bookings
-router.get("/all", requireJWT, requireRole(["admin"]), async (req, res) => {
-  const list = await Booking.find({}).sort({ createdAt: -1 });
-  res.json({ ok: true, data: list });
-});
-
-// ADMIN: assign decorator/team
 router.patch(
   "/:id/assign",
   requireJWT,
@@ -192,10 +194,10 @@ router.patch(
       return res.status(404).json({ ok: false, message: "Booking not found" });
 
     // decorator can only update their own assigned booking
-    if (req.auth.role === "decorator") {
+    if (req.user.role === "decorator") {
       if (
         !booking.assignedDecoratorId ||
-        booking.assignedDecoratorId.toString() !== req.auth._id
+        booking.assignedDecoratorId.toString() !== req.user._id
       ) {
         return res
           .status(403)
