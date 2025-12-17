@@ -10,11 +10,8 @@ module.exports = async function requireJWT(req, res, next) {
       return res.status(401).json({ ok: false, message: "No JWT token" });
     }
 
-    // verify token
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    // payload may contain: uid, email, role, _id (don’t trust blindly)
 
-    // ALWAYS fetch DB user
     const dbUser = await user.findOne({
       $or: [
         payload._id ? { _id: payload._id } : null,
