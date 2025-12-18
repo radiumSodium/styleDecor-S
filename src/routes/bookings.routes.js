@@ -181,6 +181,21 @@ router.patch(
           .status(404)
           .json({ ok: false, message: "Booking not found" });
 
+      // ✅ enforce requirement: assign only if paid
+      if (booking.paymentStatus !== "paid") {
+        return res.status(400).json({
+          ok: false,
+          message: "Payment required before assigning decorator",
+        });
+      }
+
+      // ✅ also block assignment if cancelled
+      if (booking.status === "cancelled") {
+        return res.status(400).json({
+          ok: false,
+          message: "Cannot assign a cancelled booking",
+        });
+      }
       if (decoratorId !== undefined) {
         booking.assignedDecoratorId = decoratorId || null;
       }
@@ -248,5 +263,45 @@ router.patch(
     }
   }
 );
+
+// USER or ADMIN: cancel booking
+router.patch("/:id/cancel", requireJWT, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ ok: false, message: "Booking not found" });
+    }
+
+    // user can cancel only own booking
+    if (
+      req.user.role === "user" &&
+      String(booking.userId) !== String(req.user._id)
+    ) {
+      return res.status(403).json({ ok: false, message: "Forbidden" });
+    }
+
+    // block cancel if complete
+    if (booking.status === "complete") {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Completed booking cannot be cancelled" });
+    }
+
+    booking.status = "cancelled";
+    booking.statusUpdatedAt = new Date();
+    booking.cancelledAt = new Date();
+    booking.cancelledBy = req.user.role === "admin" ? "admin" : "user";
+
+    // optional: remove assignment
+    booking.assignedDecoratorId = null;
+    booking.assignedTeam = "";
+
+    await booking.save();
+    res.json({ ok: true, data: booking });
+  } catch (e) {
+    console.error("PATCH /api/bookings/:id/cancel error:", e);
+    res.status(500).json({ ok: false, message: "Failed to cancel booking" });
+  }
+});
 
 module.exports = router;

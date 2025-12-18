@@ -7,6 +7,7 @@ const STATUS = [
   "ontheway",
   "setup",
   "complete",
+  "cancelled"
 ];
 
 const bookingSchema = new mongoose.Schema(
@@ -54,7 +55,11 @@ const bookingSchema = new mongoose.Schema(
     status: { type: String, enum: STATUS, default: "assigned" },
     statusUpdatedAt: { type: Date, default: Date.now },
 
-    // payment (UI now, Stripe later)
+    paidAt: { type: Date, default: null },
+
+    cancelledAt: { type: Date, default: null },
+    cancelledBy: { type: String, enum: ["user", "admin"], default: null },
+    
     paymentStatus: {
       type: String,
       enum: ["unpaid", "paid"],
