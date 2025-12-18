@@ -56,5 +56,32 @@ router.patch(
     }
   }
 );
+// ADMIN: approve/disable user (decorator mostly)
+router.patch(
+  "/:id/active",
+  requireJWT,
+  requireRole(["admin"]),
+  async (req, res) => {
+    try {
+      const { isActive } = req.body;
 
+      const updated = await User.findByIdAndUpdate(
+        req.params.id,
+        { $set: { isActive: Boolean(isActive) } },
+        { new: true }
+      );
+
+      if (!updated) {
+        return res.status(404).json({ ok: false, message: "User not found" });
+      }
+
+      res.json({ ok: true, data: updated });
+    } catch (e) {
+      console.error("PATCH /api/users/:id/active error:", e);
+      res
+        .status(500)
+        .json({ ok: false, message: "Failed to update active status" });
+    }
+  }
+);
 module.exports = router;
