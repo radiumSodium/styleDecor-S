@@ -95,11 +95,15 @@ The server is built as a **serverless Express API** and deployed on **Vercel**, 
 
 ## 📦 NPM Packages Used
 
-- express  
-- mongoose  
-- jsonwebtoken  
-- stripe  
-- dotenv  
-- cors  
+### Dependencies
+- **express** (^5.2.1) – Web framework for building REST APIs  
+- **mongoose** (^9.0.1) – MongoDB object modeling for Node.js  
+- **mongodb** (^7.0.0) – Official MongoDB Node.js driver  
+- **jsonwebtoken** (^9.0.3) – JWT authentication & authorization  
+- **stripe** (^20.0.0) – Payment processing and Stripe API integration  
+- **firebase-admin** (^13.6.0) – Firebase Admin SDK for secure server operations  
+- **dotenv** (^17.2.3) – Environment variable management  
+- **cors** (^2.8.5) – Cross-Origin Resource Sharing configuration  
 
----
+### Dev Dependencies
+- **nodemon** (^3.1.11) – Auto-restarts server during development  
