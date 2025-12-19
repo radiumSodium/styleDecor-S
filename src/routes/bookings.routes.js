@@ -181,7 +181,7 @@ router.patch(
           .status(404)
           .json({ ok: false, message: "Booking not found" });
 
-      // ✅ enforce requirement: assign only if paid
+   
       if (booking.paymentStatus !== "paid") {
         return res.status(400).json({
           ok: false,
@@ -189,7 +189,6 @@ router.patch(
         });
       }
 
-      // ✅ also block assignment if cancelled
       if (booking.status === "cancelled") {
         return res.status(400).json({
           ok: false,
@@ -292,7 +291,6 @@ router.patch("/:id/cancel", requireJWT, async (req, res) => {
     booking.cancelledAt = new Date();
     booking.cancelledBy = req.user.role === "admin" ? "admin" : "user";
 
-    // optional: remove assignment
     booking.assignedDecoratorId = null;
     booking.assignedTeam = "";
 

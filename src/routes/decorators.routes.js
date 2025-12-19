@@ -16,7 +16,6 @@ router.get("/", async (req, res) => {
       return res.json({ ok: true, data: [] });
     }
 
-    // filter out invalid userId just in case
     const userIds = profiles.map((p) => p.userId).filter(Boolean);
 
     const users = await User.find({ _id: { $in: userIds } })

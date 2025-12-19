@@ -88,7 +88,7 @@ router.post("/confirm", requireJWT, async (req, res) => {
       return res.json({ ok: true, alreadyPaid: true });
     }
 
-    // ✅ store payment in DB
+    //  store payment in DB
     const receiptUrl = pi.charges?.data?.[0]?.receipt_url || "";
     await Payment.create({
       bookingId: booking._id,
@@ -101,7 +101,7 @@ router.post("/confirm", requireJWT, async (req, res) => {
       receiptUrl,
     });
 
-    // ✅ update booking
+    //  update booking
     booking.paymentStatus = "paid";
     booking.transactionId = pi.id;
     booking.paidAt = new Date();

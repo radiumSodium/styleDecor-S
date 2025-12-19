@@ -10,7 +10,6 @@ module.exports = function requireRole(allowedRoles = []) {
       return res.status(403).json({ ok: false, message: "Forbidden" });
     }
 
-    // ✅ Block disabled decorator accounts from accessing decorator routes
     // (admin stays allowed even if isActive is false)
     if (role === "decorator" && req.user?.isActive === false) {
       return res

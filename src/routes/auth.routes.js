@@ -15,7 +15,6 @@ router.post("/session", verifyFirebase, async (req, res) => {
         .json({ ok: false, message: "Firebase token has no email" });
     }
 
-    // ✅ Find or create/update user first
     const update = {
       uid,
       email,
@@ -29,7 +28,6 @@ router.post("/session", verifyFirebase, async (req, res) => {
       { new: true, upsert: true }
     );
 
-    // ✅ Now sign JWT after dbUser exists
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({ ok: false, message: "Missing JWT_SECRET" });
     }

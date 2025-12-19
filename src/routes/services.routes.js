@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ✅ PUBLIC: get single service by id (Service Details)
+// PUBLIC: get single service by id (Service Details)
 router.get("/:id", async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);

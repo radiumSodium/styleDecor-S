@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-// ✅ Cache across Vercel lambda reuse
+// Cache across Vercel lambda reuse
 let cached = global.__mongoose_cache__;
 if (!cached) {
   cached = global.__mongoose_cache__ = { conn: null, promise: null };

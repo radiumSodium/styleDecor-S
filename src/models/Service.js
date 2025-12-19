@@ -12,7 +12,6 @@ const serviceSchema = new Schema(
     tags: [{ type: String }],
     active: { type: Boolean, default: true },
 
-    // who created it
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: false },
   },
   { timestamps: true }

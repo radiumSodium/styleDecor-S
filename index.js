@@ -13,7 +13,6 @@ const paymentsRoutes = require("./src/routes/payments.routes");
 
 const app = express();
 
-// ✅ CORS: allow one or multiple origins (comma separated)
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
   .split(",")
   .map((s) => s.trim())
@@ -22,10 +21,8 @@ const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
 app.use(
   cors({
     origin: function (origin, cb) {
-      // allow server-to-server / postman requests (no origin)
       if (!origin) return cb(null, true);
 
-      // if CLIENT_ORIGIN is not set, allow all (dev friendly)
       if (allowedOrigins.length === 0) return cb(null, true);
 
       if (allowedOrigins.includes(origin)) return cb(null, true);
@@ -37,7 +34,6 @@ app.use(
 
 app.use(express.json({ limit: "2mb" }));
 
-// ✅ connect DB once (serverless safe)
 async function ensureDB() {
   if (!process.env.MONGODB_URI) {
     throw new Error("Missing MONGODB_URI in environment variables");
@@ -45,7 +41,6 @@ async function ensureDB() {
   await connectDB(process.env.MONGODB_URI);
 }
 
-// ✅ IMPORTANT: Always ensure DB for all /api routes (fixes Vercel cold start issues)
 app.use("/api", async (req, res, next) => {
   try {
     await ensureDB();
@@ -58,10 +53,8 @@ app.use("/api", async (req, res, next) => {
   }
 });
 
-// Root route (no DB needed)
 app.get("/", (req, res) => res.json({ ok: true, name: "StyleDecor API" }));
 
-// Health route (will also test DB because it's under /api)
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, db: "connected", time: new Date().toISOString() });
 });
@@ -78,10 +71,8 @@ app.use((req, res) =>
   res.status(404).json({ ok: false, message: "Route not found" })
 );
 
-// ✅ Vercel needs: export the app (serverless handler)
 module.exports = app;
 
-// ✅ LOCAL: only listen when running directly
 if (require.main === module) {
   (async () => {
     try {
