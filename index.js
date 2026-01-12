@@ -13,7 +13,7 @@ const paymentsRoutes = require("./src/routes/payments.routes");
 
 const app = express();
 
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://style-decor-532c3.web.app")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
