@@ -20,13 +20,11 @@ const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://style-decor-532c3.
 
 console.log("🔧 CORS allowed origins:", allowedOrigins);
 
-// Permissive CORS for development
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      // Check if origin is allowed
+      console.log("Request from origin:", origin);  // Log the origin to check
+      if (!origin) return callback(null, true); // Allow requests without origin (e.g., from mobile apps)
       if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== "production") {
         callback(null, true);
       } else {
