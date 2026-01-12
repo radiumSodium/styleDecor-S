@@ -13,26 +13,40 @@ const paymentsRoutes = require("./src/routes/payments.routes");
 
 const app = express();
 
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
+console.log("🔧 CORS allowed origins:", allowedOrigins);
+
+// Permissive CORS for development
 app.use(
   cors({
-    origin: function (origin, cb) {
-      if (!origin) return cb(null, true);
-
-      if (allowedOrigins.length === 0) return cb(null, true);
-
-      if (allowedOrigins.includes(origin)) return cb(null, true);
-      return cb(new Error("Not allowed by CORS: " + origin));
-    },
+    origin: true, // Reflects the request origin, allowing any origin
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
   })
 );
 
+// Fix Cross-Origin-Opener-Policy for Firebase Auth
+app.use((req, res, next) => {
+  res.header("Cross-Origin-Opener-Policy", "unsafe-none");
+  res.header("Cross-Origin-Embedder-Policy", "unsafe-none");
+  next();
+});
+
 app.use(express.json({ limit: "2mb" }));
+
+// Manual CORS middleware removed to prevent conflicts
+
 
 async function ensureDB() {
   if (!process.env.MONGODB_URI) {
@@ -68,7 +82,7 @@ app.use("/api/bookings", bookingsRoutes);
 app.use("/api/payments", paymentsRoutes);
 
 app.use((req, res) =>
-  res.status(404).json({ ok: false, message: "Route not found" })
+  res.status(404).json({ ok: false, message: "Route not found" }),
 );
 
 module.exports = app;
@@ -77,7 +91,7 @@ if (require.main === module) {
   (async () => {
     try {
       await ensureDB();
-      const PORT = process.env.PORT || 5000;
+      const PORT = process.env.PORT || 8000;
       app.listen(PORT, () => console.log("✅ Server running on", PORT));
     } catch (err) {
       console.error("❌ Failed to start server:", err);

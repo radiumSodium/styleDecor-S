@@ -4,6 +4,7 @@ const requireJWT = require("../middlewares/requireJWT");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
 
+console.log("Stripe SK loaded (Backend):", (process.env.STRIPE_SECRET_KEY || "").slice(0, 10) + "...");
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 router.post("/create-payment-intent", requireJWT, async (req, res) => {
@@ -122,7 +123,9 @@ router.get("/my", requireJWT, async (req, res) => {
         ? {} // decorator can see all OR only assigned (your choice)
         : { userId: req.user._id };
 
+    console.log("GET /api/payments/my", { role: req.user.role, uid: req.user._id, query });
     const list = await Payment.find(query).sort({ createdAt: -1 });
+    console.log("Found payments:", list.length);
     res.json({ ok: true, data: list });
   } catch (e) {
     console.error("GET /api/payments/my error:", e);
